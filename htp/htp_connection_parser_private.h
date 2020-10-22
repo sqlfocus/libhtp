@@ -91,7 +91,7 @@ struct htp_connp_t {
     htp_time_t in_timestamp;
 
     /** Pointer to the current request data chunk. */
-    unsigned char *in_current_data;
+    unsigned char *in_current_data;     /* 当前处理的数据块 */
 
     /** The length of the current request data chunk. */
     int64_t in_current_len;
@@ -113,10 +113,10 @@ struct htp_connp_t {
     int64_t in_current_receiver_offset;
 
     /** How many data chunks does the inbound connection stream consist of? */
-    size_t in_chunk_count;
+    size_t in_chunk_count;              /* 已经接受的inbound数据块 */
 
     /** The index of the first chunk used in the current request. */
-    size_t in_chunk_request_index;
+    size_t in_chunk_request_index;      /* 当前请求对应的起始数据块索引 */
 
     /** The offset, in the entire connection stream, of the next request byte. */
     int64_t in_stream_offset;
@@ -125,7 +125,7 @@ struct htp_connp_t {
      * The value of the request byte currently being processed. This field is
      * populated when the IN_NEXT_* or IN_PEEK_* macros are invoked.
      */
-    int in_next_byte;
+    int in_next_byte;                   /* 下一个待处理的字节 */
 
     /** Used to buffer a line of inbound data when buffering cannot be avoided. */
     unsigned char *in_buf;
@@ -140,21 +140,21 @@ struct htp_connp_t {
     bstr *in_header;
 
     /** Ongoing inbound transaction. */
-    htp_tx_t *in_tx;
+    htp_tx_t *in_tx;                    /* 当前处理的事务 */
 
     /**
      * The request body length declared in a valid request header. The key here
      * is "valid". This field will not be populated if the request contains both
      * a Transfer-Encoding header and a Content-Length header.
      */
-    int64_t in_content_length;
+    int64_t in_content_length;          /* 请求头中 Content-length 的值 */
 
     /**
      * Holds the remaining request body length that we expect to read. This
      * field will be available only when the length of a request body is known
      * in advance, i.e. when request headers contain a Content-Length header.
      */
-    int64_t in_body_data_left;
+    int64_t in_body_data_left;          /* 剩余的希望读取的body长度，当请求头包含Content-Length时可计算 */
 
     /**
      * Holds the amount of data that needs to be read from the
@@ -162,11 +162,11 @@ struct htp_connp_t {
      */
     int64_t in_chunked_length;
 
-    /** Current request parser state. */
-    int (*in_state)(htp_connp_t *);
-
+    /** Current request parser state. */     /* 当前解析句柄 *//* htp_connp_REQ_IDLE() */
+    int (*in_state)(htp_connp_t *);          /* -> htp_connp_REQ_LINE() -> htp_connp_REQ_PROTOCOL() */
+                                             /* -> htp_connp_REQ_HEADERS() -> htp_connp_REQ_BODY_DETERMINE() -> htp_connp_REQ_FINALIZE() */
     /** Previous request parser state. Used to detect state changes. */
-    int (*in_state_previous)(htp_connp_t *);
+    int (*in_state_previous)(htp_connp_t *); /* 记录前一个解析状态，以发现状态变更 */
 
     /** The hook that should be receiving raw connection data. */
     htp_hook_t *in_data_receiver_hook;    
@@ -178,7 +178,7 @@ struct htp_connp_t {
      * used to match responses to requests. The expectation is that for every
      * response there will already be a transaction (request) waiting.
      */
-    size_t out_next_tx_index;
+    size_t out_next_tx_index;         /* 出向应答计数，以期待每个response/request组对 */
 
     /** The time when the last response data chunk was received. Can be NULL. */
     htp_time_t out_timestamp;
@@ -224,7 +224,7 @@ struct htp_connp_t {
     bstr *out_header;
 
     /** Ongoing outbound transaction */
-    htp_tx_t *out_tx;
+    htp_tx_t *out_tx;                /* 出向事务, 对应 ->in_tx */
    
     /**
      * The length of the current response body as presented in the
@@ -242,7 +242,7 @@ struct htp_connp_t {
     int64_t out_chunked_length;
 
     /** Current response parser state. */
-    int (*out_state)(htp_connp_t *);
+    int (*out_state)(htp_connp_t *); /* 出向处理函数, htp_connp_RES_IDLE() */
 
     /** Previous response parser state. */
     int (*out_state_previous)(htp_connp_t *);

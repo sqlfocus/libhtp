@@ -1141,12 +1141,12 @@ htp_status_t htp_connp_RES_IDLE(htp_connp_t *connp) {
     OUT_TEST_NEXT_BYTE_OR_RETURN(connp);
 
     // Parsing a new response
-
+    /* 获取对应的事务; <TK!!!>纯粹顺序对应，所以HTTP必须不乱序 */
     // Find the next outgoing transaction
     // If there is none, we just create one so that responses without
     // request can still be processed.
     connp->out_tx = htp_list_get(connp->conn->transactions, connp->out_next_tx_index);
-    if (connp->out_tx == NULL) {
+    if (connp->out_tx == NULL) {     /* CASE: 无对应的请求，dangling事务，以处理无请求的事务 */
         htp_log(connp, HTP_LOG_MARK, HTP_LOG_ERROR, 0, "Unable to match response to request");
         // finalize dangling request waiting for next request or body
         if (connp->in_state == htp_connp_REQ_FINALIZE) {
@@ -1169,13 +1169,13 @@ htp_status_t htp_connp_RES_IDLE(htp_connp_t *connp) {
             return HTP_ERROR;
         }
 
-        connp->in_state = htp_connp_REQ_FINALIZE;
+        connp->in_state = htp_connp_REQ_FINALIZE;  /* 应该没有后续数据了 */
 #ifdef HTP_DEBUG
         fprintf(stderr, "picked up response w/o request");
 #endif
         // We've used one transaction
         connp->out_next_tx_index++;
-    } else {
+    } else {                         /* CASE: 正常情况，找到了匹配的事务 */
         // We've used one transaction
         connp->out_next_tx_index++;
 
@@ -1184,13 +1184,13 @@ htp_status_t htp_connp_RES_IDLE(htp_connp_t *connp) {
         connp->out_content_length = -1;
         connp->out_body_data_left = -1;
     }
-
+    /* 开始处理 */
     htp_status_t rc = htp_tx_state_response_start(connp->out_tx);
     if (rc != HTP_OK) return rc;
 
     return HTP_OK;
 }
-
+/* HTTP应答处理入口 */
 int htp_connp_res_data(htp_connp_t *connp, const htp_time_t *timestamp, const void *data, size_t len) {
     #ifdef HTP_DEBUG
     fprintf(stderr, "htp_connp_res_data(connp->out_status %x)\n", connp->out_status);

@@ -83,7 +83,7 @@ typedef struct timeval htp_time_t;
 /**
  * Returned when processing a connection stream, after consuming all
  * provided data. The caller should call again with more data.
- */
+ *//* 当前数据已经消耗完毕, 需要更多数据 */
 #define HTP_DATA                    2
 
 /**
@@ -108,7 +108,7 @@ typedef struct timeval htp_time_t;
 /**
  * Same as HTP_DATA, but indicates that any non-consumed part of the
  * data chunk should be preserved (buffered) for later.
- */
+ *//* 类似于 HTP_DATA, 不过需要缓存未消耗的数据 */
 #define HTP_DATA_BUFFER             5
 
 /**
@@ -338,9 +338,9 @@ enum htp_stream_state_t {
     HTP_STREAM_CLOSED = 2,
     HTP_STREAM_ERROR = 3,
     HTP_STREAM_TUNNEL = 4,
-    HTP_STREAM_DATA_OTHER = 5,
+    HTP_STREAM_DATA_OTHER = 5, /* 数据未消耗完，等待另一方向解析 */
     HTP_STREAM_STOP = 6,
-    HTP_STREAM_DATA = 9
+    HTP_STREAM_DATA = 9        /* 等待更多数据 */
 };
 
 #ifdef	__cplusplus

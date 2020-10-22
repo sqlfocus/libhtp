@@ -194,20 +194,20 @@ void htp_connp_set_user_data(htp_connp_t *connp, const void *user_data) {
     if (connp == NULL) return;
     connp->user_data = user_data;
 }
-
+/* 创建事务 */
 htp_tx_t *htp_connp_tx_create(htp_connp_t *connp) {
     if (connp == NULL) return NULL;
     
-    // Detect pipelining.
+    /* 发现HTTP PIPELINE */// Detect pipelining.
     if (htp_list_size(connp->conn->transactions) > connp->out_next_tx_index) {
         connp->conn->flags |= HTP_CONN_PIPELINED;
     }
-
+    /* 创建事务 */
     htp_tx_t *tx = htp_tx_create(connp);
     if (tx == NULL) return NULL;
-
+    /* 设置当前处理事务 */
     connp->in_tx = tx;   
-
+    /* 重置相关变量 */
     htp_connp_in_reset(connp);
 
     return tx;

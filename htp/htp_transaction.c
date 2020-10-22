@@ -49,22 +49,22 @@ static bstr *copy_or_wrap_mem(const void *data, size_t len, enum htp_alloc_strat
         return bstr_dup_mem(data, len);
     }
 }
-
+/* 创建事务 */
 htp_tx_t *htp_tx_create(htp_connp_t *connp) {
     if (connp == NULL) return NULL;
-
+    /* 分配内存 */
     htp_tx_t *tx = calloc(1, sizeof (htp_tx_t));
     if (tx == NULL) return NULL;
 
     tx->connp = connp;
     tx->conn = connp->conn;
-    tx->index = htp_list_size(tx->conn->transactions);
+    tx->index = htp_list_size(tx->conn->transactions); /* 索引 */
     tx->cfg = connp->cfg;
     tx->is_config_shared = HTP_CONFIG_SHARED;
 
     // Request fields.
-
-    tx->request_progress = HTP_REQUEST_NOT_STARTED;
+    /* 初始化请求字段 */
+    tx->request_progress = HTP_REQUEST_NOT_STARTED;    /* 请求解析状态初始值 */
     tx->request_protocol_number = HTP_PROTOCOL_UNKNOWN;
     tx->request_content_length = -1;
 
@@ -75,7 +75,7 @@ htp_tx_t *htp_tx_create(htp_connp_t *connp) {
     }
 
     tx->request_headers = htp_table_create(32);
-    if (tx->request_headers == NULL) {
+    if (tx->request_headers == NULL) {                 /* 头部字段表 */
         htp_tx_destroy_incomplete(tx);
         return NULL;
     }
@@ -87,7 +87,7 @@ htp_tx_t *htp_tx_create(htp_connp_t *connp) {
     }
 
     // Response fields.
-
+    /* 初始化应答字段 */
     tx->response_progress = HTP_RESPONSE_NOT_STARTED;
     tx->response_status = NULL;
     tx->response_status_number = HTP_STATUS_UNKNOWN;
@@ -99,7 +99,7 @@ htp_tx_t *htp_tx_create(htp_connp_t *connp) {
         htp_tx_destroy_incomplete(tx);
         return NULL;
     }
-
+    /* 挂接到事务链表 */
     htp_list_add(tx->conn->transactions, tx);
 
     return tx;
@@ -931,7 +931,7 @@ htp_status_t htp_tx_state_request_complete_partial(htp_tx_t *tx) {
 
     return HTP_OK;
 }
-
+/* 结束请求处理 */
 htp_status_t htp_tx_state_request_complete(htp_tx_t *tx) {
     if (tx == NULL) return HTP_ERROR;
 
@@ -949,7 +949,7 @@ htp_status_t htp_tx_state_request_complete(htp_tx_t *tx) {
     if (tx->is_protocol_0_9) {
         connp->in_state = htp_connp_REQ_IGNORE_DATA_AFTER_HTTP_0_9;
     } else {
-        connp->in_state = htp_connp_REQ_IDLE;
+        connp->in_state = htp_connp_REQ_IDLE;  /* 等待下一次请求，如PIPELINE */
     }
 
     // Check if the entire transaction is complete. This call may
@@ -958,25 +958,25 @@ htp_status_t htp_tx_state_request_complete(htp_tx_t *tx) {
 
     // At this point, tx may no longer be valid.
 
-    connp->in_tx = NULL;
+    connp->in_tx = NULL;                       /* 清理当前事务 */
 
     return HTP_OK;
 }
-
+/* 开始处理request */
 htp_status_t htp_tx_state_request_start(htp_tx_t *tx) {
     if (tx == NULL) return HTP_ERROR;
 
     // Run hook REQUEST_START.
     htp_status_t rc = htp_hook_run_all(tx->connp->cfg->hook_request_start, tx);
-    if (rc != HTP_OK) return rc;
+    if (rc != HTP_OK) return rc;                /* 跑hook函数 */
 
     // Change state into request line parsing.
-    tx->connp->in_state = htp_connp_REQ_LINE;
-    tx->connp->in_tx->request_progress = HTP_REQUEST_LINE;
+    tx->connp->in_state = htp_connp_REQ_LINE;   /* 下阶段的处理函数 */
+    tx->connp->in_tx->request_progress = HTP_REQUEST_LINE;  /* 设定事务的处理阶段 */
 
     return HTP_OK;
 }
-
+/* 请求头处理完毕，设置下一阶段处理函数 */
 htp_status_t htp_tx_state_request_headers(htp_tx_t *tx) {
     if (tx == NULL) return HTP_ERROR;
 
@@ -1007,7 +1007,7 @@ htp_status_t htp_tx_state_request_headers(htp_tx_t *tx) {
         htp_status_t rc = htp_tx_process_request_headers(tx);
         if (rc != HTP_OK) return rc;
 
-        tx->connp->in_state = htp_connp_REQ_CONNECT_CHECK;
+        tx->connp->in_state = htp_connp_REQ_CONNECT_CHECK;  /* 下一阶段处理函数 */
     } else {
         htp_log(tx->connp, HTP_LOG_MARK, HTP_LOG_WARNING, 0, "[Internal Error] Invalid tx progress: %d", tx->request_progress);
 
@@ -1062,7 +1062,7 @@ htp_status_t htp_tx_state_request_line(htp_tx_t *tx) {
     if (rc != HTP_OK) return rc;
 
     // Move on to the next phase.
-    tx->connp->in_state = htp_connp_REQ_PROTOCOL;
+    tx->connp->in_state = htp_connp_REQ_PROTOCOL;  /* 下一阶段处理函数 */
 
     return HTP_OK;
 }

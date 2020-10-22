@@ -144,11 +144,11 @@ htp_status_t htp_connp_req_receiver_finalize_clear(htp_connp_t *connp) {
  *
  * @param[in] connp
  * @return HTP_OK, or a value returned from a callback.
- */
+ *//* 处理请求解析状态变更 */
 static htp_status_t htp_req_handle_state_change(htp_connp_t *connp) {
-    if (connp->in_state_previous == connp->in_state) return HTP_OK;
+    if (connp->in_state_previous == connp->in_state) return HTP_OK;  /* 状态未变更 */
 
-    if (connp->in_state == htp_connp_REQ_HEADERS) {
+    if (connp->in_state == htp_connp_REQ_HEADERS) {   /* 请求头设定回调函数 */
         htp_status_t rc = HTP_OK;
 
         switch (connp->in_tx->request_progress) {
@@ -174,7 +174,7 @@ static htp_status_t htp_req_handle_state_change(htp_connp_t *connp) {
     // the finalization is now initiated from the request header processing code,
     // which is less elegant but provides a better user experience. Having some
     // (or all) hooks to be invoked on state change might work better.
-
+    /* 变更状态 */
     connp->in_state_previous = connp->in_state;
 
     return HTP_OK;
@@ -246,11 +246,11 @@ static htp_status_t htp_connp_req_buffer(htp_connp_t *connp) {
  * @return HTP_OK
  */
 static htp_status_t htp_connp_req_consolidate_data(htp_connp_t *connp, unsigned char **data, size_t *len) {
-    if (connp->in_buf == NULL) {
+    if (connp->in_buf == NULL) {  /* 未缓存数据，从当前输入数据块读取 */
         // We do not have any data buffered; point to the current data chunk.
         *data = connp->in_current_data + connp->in_current_consume_offset;
         *len = connp->in_current_read_offset - connp->in_current_consume_offset;
-    } else {
+    } else {                      /* 有缓存数据 */
         // We already have some data in the buffer. Add the data from the current
         // chunk to it, and point to the consolidated buffer.
         if (htp_connp_req_buffer(connp) != HTP_OK) {
@@ -301,7 +301,7 @@ htp_status_t htp_connp_REQ_CONNECT_CHECK(htp_connp_t *connp) {
 
     // Continue to the next step to determine 
     // the presence of request body
-    connp->in_state = htp_connp_REQ_BODY_DETERMINE;
+    connp->in_state = htp_connp_REQ_BODY_DETERMINE;  /* 下一阶段处理 */
 
     return HTP_OK;
 }
@@ -611,7 +611,7 @@ htp_status_t htp_connp_REQ_BODY_DETERMINE(htp_connp_t *connp) {
  *
  * @param[in] connp
  * @returns HTP_OK on state change, HTP_ERROR on error, or HTP_DATA when more data is needed.
- */
+ *//* 处理HTTP属性头 */
 htp_status_t htp_connp_REQ_HEADERS(htp_connp_t *connp) {
     for (;;) {
         if (connp->in_status == HTP_STREAM_CLOSED) {
@@ -631,22 +631,22 @@ htp_status_t htp_connp_REQ_HEADERS(htp_connp_t *connp) {
             // We've seen all the request headers.
             return htp_tx_state_request_headers(connp->in_tx);
         }
-        IN_COPY_BYTE_OR_RETURN(connp);
+        IN_COPY_BYTE_OR_RETURN(connp);  /* 单字节读取数据 */
 
-        // Have we reached the end of the line?
+        /* 读到行尾，可以处理一个 "属性:值" 对 */// Have we reached the end of the line?
         if (connp->in_next_byte == LF) {
             unsigned char *data;
             size_t len;
 
             if (htp_connp_req_consolidate_data(connp, &data, &len) != HTP_OK) {
-                return HTP_ERROR;
+                return HTP_ERROR;      /* 提取数据 */
             }
 
             #ifdef HTP_DEBUG
             fprint_raw_data(stderr, __func__, data, len);
             #endif           
 
-            // Should we terminate headers?
+            /* CASE: 头部结束行，仅包含\r\n */// Should we terminate headers?
             if (htp_connp_is_line_terminator(connp, data, len, 0)) {
                 // Parse previous header, if any.
                 if (connp->in_header != NULL) {
@@ -659,7 +659,7 @@ htp_status_t htp_connp_REQ_HEADERS(htp_connp_t *connp) {
 
                 htp_connp_req_clear_buffer(connp);
 
-                // We've seen all the request headers.
+                // We've seen all the request headers.   /* 设置下一阶段处理 */
                 return htp_tx_state_request_headers(connp->in_tx);
             }
 
@@ -722,7 +722,7 @@ htp_status_t htp_connp_REQ_HEADERS(htp_connp_t *connp) {
  *
  * @param[in] connp
  * @returns HTP_OK on state change, HTP_ERROR on error, or HTP_DATA when more data is needed.
- */
+ *//* 处理HTTP协议号 */
 htp_status_t htp_connp_REQ_PROTOCOL(htp_connp_t *connp) {
     // Is this a short-style HTTP/0.9 request? If it is,
     // we will not want to parse request headers.
@@ -740,7 +740,7 @@ htp_status_t htp_connp_REQ_PROTOCOL(htp_connp_t *connp) {
                 htp_log(connp, HTP_LOG_MARK, HTP_LOG_WARNING, 0, "Request line: missing protocol");
                 connp->in_tx->is_protocol_0_9 = 0;
                 // Switch to request header parsing.
-                connp->in_state = htp_connp_REQ_HEADERS;
+                connp->in_state = htp_connp_REQ_HEADERS;   /* CASE1: 下一阶段处理函数 */
                 connp->in_tx->request_progress = HTP_REQUEST_HEADERS;
                 return HTP_OK;
             } else if (htp_is_lws(connp->in_current_data[pos])) {
@@ -752,7 +752,7 @@ htp_status_t htp_connp_REQ_PROTOCOL(htp_connp_t *connp) {
             pos++;
         }
         // We're done with this request.
-        connp->in_state = htp_connp_REQ_FINALIZE;
+        connp->in_state = htp_connp_REQ_FINALIZE;          /* CASE2: 下一阶段处理函数 */
     }
 
     return HTP_OK;
@@ -763,11 +763,11 @@ htp_status_t htp_connp_REQ_PROTOCOL(htp_connp_t *connp) {
  *
  * @param[in] connp
  * @returns HTP_OK on succesful parse, HTP_ERROR on error.
- */
+ *//* 解析请求行 */
 htp_status_t htp_connp_REQ_LINE_complete(htp_connp_t *connp) {
     unsigned char *data;
     size_t len;
-
+    /* 抓取待分析的数据 */
     if (htp_connp_req_consolidate_data(connp, &data, &len) != HTP_OK) {
         return HTP_ERROR;
     }
@@ -776,7 +776,7 @@ htp_status_t htp_connp_REQ_LINE_complete(htp_connp_t *connp) {
     fprint_raw_data(stderr, __func__, data, len);
     #endif
 
-    // Is this a line that should be ignored?
+    /* 无效行 */// Is this a line that should be ignored?
     if (htp_connp_is_line_ignorable(connp, data, len)) {
         // We have an empty/whitespace line, which we'll note, ignore and move on.
         connp->in_tx->request_ignored_lines++;
@@ -787,18 +787,18 @@ htp_status_t htp_connp_REQ_LINE_complete(htp_connp_t *connp) {
     }
 
     // Process request line.
-
+    /* 去除尾端的换行符号 */
     htp_chomp(data, &len);
 
-    connp->in_tx->request_line = bstr_dup_mem(data, len);
+    connp->in_tx->request_line = bstr_dup_mem(data, len);  /* 记录请求行 */
     if (connp->in_tx->request_line == NULL)
         return HTP_ERROR;
 
-    if (connp->cfg->parse_request_line(connp) != HTP_OK)
+    if (connp->cfg->parse_request_line(connp) != HTP_OK)   /* 解析 */
         return HTP_ERROR;
 
     // Finalize request line parsing.
-
+    /* 提取解析结果，验证合法性；并设置下一阶段处理, htp_connp_REQ_PROTOCOL() */
     if (htp_tx_state_request_line(connp->in_tx) != HTP_OK)
         return HTP_ERROR;
 
@@ -812,30 +812,30 @@ htp_status_t htp_connp_REQ_LINE_complete(htp_connp_t *connp) {
  *
  * @param[in] connp
  * @returns HTP_OK on state change, HTP_ERROR on error, or HTP_DATA when more data is needed.
- */
+ *//* 状态初始化后，处理请求行 */
 htp_status_t htp_connp_REQ_LINE(htp_connp_t *connp) {
     for (;;) {
-        // Get one byte
+        /* 读取1字节 */// Get one byte
         IN_PEEK_NEXT(connp);
         if (connp->in_status == HTP_STREAM_CLOSED && connp->in_next_byte == -1) {
             return htp_connp_REQ_LINE_complete(connp);
         }
         IN_COPY_BYTE_OR_RETURN(connp);
 
-        // Have we reached the end of the line?
+        /* 到达请求行的尾部, \r\n */// Have we reached the end of the line?
         if (connp->in_next_byte == LF) {
-            return htp_connp_REQ_LINE_complete(connp);
+            return htp_connp_REQ_LINE_complete(connp);  /* 解析请求行 */
         }
     }
 
     return HTP_ERROR;
 }
-
+/* 请求报文处理完毕 */
 htp_status_t htp_connp_REQ_FINALIZE(htp_connp_t *connp) {
     if (connp->in_status != HTP_STREAM_CLOSED) {
         IN_PEEK_NEXT(connp);
         if (connp->in_next_byte == -1) {
-            return htp_tx_state_request_complete(connp->in_tx);
+            return htp_tx_state_request_complete(connp->in_tx);  /* 结束处理 */
         }
         if (connp->in_next_byte != LF || connp->in_current_consume_offset >= connp->in_current_read_offset) {
             for (;;) {//;i < max_read; i++) {
@@ -928,7 +928,7 @@ htp_status_t htp_connp_REQ_IGNORE_DATA_AFTER_HTTP_0_9(htp_connp_t *connp) {
  *
  * @param[in] connp
  * @returns HTP_OK on state change, HTP_ERROR on error, or HTP_DATA when more data is needed.
- */
+ *//* 某个事务处理完毕，或新请求刚刚到来 */
 htp_status_t htp_connp_REQ_IDLE(htp_connp_t * connp) {
     // We want to start parsing the next request (and change
     // the state from IDLE) only if there's at least one
@@ -937,11 +937,11 @@ htp_status_t htp_connp_REQ_IDLE(htp_connp_t * connp) {
     // connection.
     IN_TEST_NEXT_BYTE_OR_RETURN(connp);
 
-    connp->in_tx = htp_connp_tx_create(connp);
+    connp->in_tx = htp_connp_tx_create(connp);  /* 创建事务 */
     if (connp->in_tx == NULL) return HTP_ERROR;
 
     // Change state to TRANSACTION_START
-    htp_tx_state_request_start(connp->in_tx);
+    htp_tx_state_request_start(connp->in_tx);   /* 设定下阶段处理函数 htp_connp_REQ_LINE() */
 
     return HTP_OK;
 }
@@ -955,20 +955,20 @@ htp_status_t htp_connp_REQ_IDLE(htp_connp_t * connp) {
 size_t htp_connp_req_data_consumed(htp_connp_t *connp) {
     return connp->in_current_read_offset;
 }
-
+/* 处理http请求数据 */
 int htp_connp_req_data(htp_connp_t *connp, const htp_time_t *timestamp, const void *data, size_t len) {
     #ifdef HTP_DEBUG
     fprintf(stderr, "htp_connp_req_data(connp->in_status %x)\n", connp->in_status);
     fprint_raw_data(stderr, __func__, data, len);
     #endif
 
-    // Return if the connection is in stop state.
+    /* CASE: STOP状态 */// Return if the connection is in stop state.
     if (connp->in_status == HTP_STREAM_STOP) {
         htp_log(connp, HTP_LOG_MARK, HTP_LOG_INFO, 0, "Inbound parser is in HTP_STREAM_STOP");
         return HTP_STREAM_STOP;
     }
 
-    // Return if the connection had a fatal error earlier
+    /* CASE: ERROR状态 */// Return if the connection had a fatal error earlier
     if (connp->in_status == HTP_STREAM_ERROR) {
         htp_log(connp, HTP_LOG_MARK, HTP_LOG_ERROR, 0, "Inbound parser is in HTP_STREAM_ERROR");
 
@@ -979,7 +979,7 @@ int htp_connp_req_data(htp_connp_t *connp, const htp_time_t *timestamp, const vo
         return HTP_STREAM_ERROR;
     }
 
-    // Sanity check: we must have a transaction pointer if the state is not IDLE (no inbound transaction)
+    /* 如果已经开始处理数据，则必须具备入向事务 */// Sanity check: we must have a transaction pointer if the state is not IDLE (no inbound transaction)
     if ((connp->in_tx == NULL)&&(connp->in_state != htp_connp_REQ_IDLE)) {
         connp->in_status = HTP_STREAM_ERROR;
 
@@ -988,7 +988,7 @@ int htp_connp_req_data(htp_connp_t *connp, const htp_time_t *timestamp, const vo
         return HTP_STREAM_ERROR;
     }
 
-    // If the length of the supplied data chunk is zero, proceed
+    /* 不允许0长度的数据块 */// If the length of the supplied data chunk is zero, proceed
     // only if the stream has been closed. We do not allow zero-sized
     // chunks in the API, but we use them internally to force the parsers
     // to finalize parsing.
@@ -1002,23 +1002,23 @@ int htp_connp_req_data(htp_connp_t *connp, const htp_time_t *timestamp, const vo
         return HTP_STREAM_CLOSED;
     }
 
-    // Remember the timestamp of the current request data chunk
+    /* 记录当前时间戳 */// Remember the timestamp of the current request data chunk
     if (timestamp != NULL) {
         memcpy(&connp->in_timestamp, timestamp, sizeof (*timestamp));
     }
 
-    // Store the current chunk information    
+    /* 临时存储数据块信息 */// Store the current chunk information    
     connp->in_current_data = (unsigned char *) data;
     connp->in_current_len = len;
     connp->in_current_read_offset = 0;
     connp->in_current_consume_offset = 0;
     connp->in_current_receiver_offset = 0;
     connp->in_chunk_count++;
-
+    /* 入向数据计数 */
     htp_conn_track_inbound_data(connp->conn, len, timestamp);
 
 
-    // Return without processing any data if the stream is in tunneling
+    /* CASE: 不处理tunnel数据 */// Return without processing any data if the stream is in tunneling
     // mode (which it would be after an initial CONNECT transaction).
     if (connp->in_status == HTP_STREAM_TUNNEL) {
         #ifdef HTP_DEBUG
@@ -1032,7 +1032,7 @@ int htp_connp_req_data(htp_connp_t *connp, const htp_time_t *timestamp, const vo
         connp->out_status = HTP_STREAM_DATA;
     }
 
-    // Invoke a processor, in a loop, until an error
+    /* 解析数据 */// Invoke a processor, in a loop, until an error
     // occurs or until we run out of data. Many processors
     // will process a request, each pointing to the next
     // processor that needs to run.
@@ -1045,7 +1045,7 @@ int htp_connp_req_data(htp_connp_t *connp, const htp_time_t *timestamp, const vo
 
         // Return if there's been an error or if we've run out of data. We are relying
         // on processors to supply error messages, so we'll keep quiet here.
-        htp_status_t rc = connp->in_state(connp);
+        htp_status_t rc = connp->in_state(connp);      /* 解析数据 */
         if (rc == HTP_OK) {
             if (connp->in_status == HTP_STREAM_TUNNEL) {
                 #ifdef HTP_DEBUG
@@ -1054,16 +1054,16 @@ int htp_connp_req_data(htp_connp_t *connp, const htp_time_t *timestamp, const vo
 
                 return HTP_STREAM_TUNNEL;
             }
-
-            rc = htp_req_handle_state_change(connp);
+            
+            rc = htp_req_handle_state_change(connp);   /* 处理状态变更 */
         }
 
         if (rc != HTP_OK) {
-            // Do we need more data?
+            /* 差错CASE: 需要更多数据 */// Do we need more data?
             if ((rc == HTP_DATA) || (rc == HTP_DATA_BUFFER)) {
                 htp_connp_req_receiver_send_data(connp, 0 /* not last */);
 
-                if (rc == HTP_DATA_BUFFER) {
+                if (rc == HTP_DATA_BUFFER) {           /* 缓存 */
                     if (htp_connp_req_buffer(connp) != HTP_OK) {
                         connp->in_status = HTP_STREAM_ERROR;
                         return HTP_STREAM_ERROR;
@@ -1079,7 +1079,7 @@ int htp_connp_req_data(htp_connp_t *connp, const htp_time_t *timestamp, const vo
                 return HTP_STREAM_DATA;
             }
 
-            // Check for suspended parsing.
+            /* 差错CASE: 数据未消耗完，需要解析另一个方向 */// Check for suspended parsing.
             if (rc == HTP_DATA_OTHER) {
                 // We might have actually consumed the entire data chunk?
                 if (connp->in_current_read_offset >= connp->in_current_len) {
@@ -1105,7 +1105,7 @@ int htp_connp_req_data(htp_connp_t *connp, const htp_time_t *timestamp, const vo
                 }
             }
 
-            // Check for the stop signal.
+            /* 差错CASE: 回调函数暗示解析暂停 */// Check for the stop signal.
             if (rc == HTP_STOP) {
                 #ifdef HTP_DEBUG
                 fprintf(stderr, "htp_connp_req_data: returning HTP_STREAM_STOP\n");
@@ -1120,7 +1120,7 @@ int htp_connp_req_data(htp_connp_t *connp, const htp_time_t *timestamp, const vo
             fprintf(stderr, "htp_connp_req_data: returning HTP_STREAM_ERROR\n");
             #endif
 
-            // Permanent stream error.
+            /* 差错CASE: 发生了解析错误 */// Permanent stream error.
             connp->in_status = HTP_STREAM_ERROR;
 
             return HTP_STREAM_ERROR;

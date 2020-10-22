@@ -97,10 +97,10 @@ struct htp_conn_t {
     htp_time_t close_timestamp;
 
     /** Inbound data counter. */
-    int64_t in_data_counter;
+    int64_t in_data_counter;      /* 入向数据计数 */
 
     /** Outbound data counter. */
-    int64_t out_data_counter;
+    int64_t out_data_counter;     /* 出向数据计数 */
 };
 
 /**
@@ -222,16 +222,16 @@ struct htp_tx_t {
     int is_config_shared;
 
     /** The user data associated with this transaction. */
-    void *user_data;
+    void *user_data;       /* suricata的数据, HtpTxUserData */
     
     
     // Request fields
 
     /** Contains a count of how many empty lines were skipped before the request line. */
-    unsigned int request_ignored_lines;
+    unsigned int request_ignored_lines;      /* 请求行前的无效行计数 */
 
     /** The first line of this request. */
-    bstr *request_line;      
+    bstr *request_line;                      /* 请求行 */
 
     /** Request method. */
     bstr *request_method;
@@ -272,7 +272,7 @@ struct htp_tx_t {
      * will be NULL. (Well, except for port_number, which will be -1.) To inspect raw data, use
      * htp_tx_t::request_uri or htp_tx_t::parsed_uri_raw.
      */
-    htp_uri_t *parsed_uri;
+    htp_uri_t *parsed_uri;     /* uri解析结果 */
 
     /**
      * This structure holds the individual components parsed out of the request URI, but
@@ -535,7 +535,7 @@ struct htp_tx_t {
     enum htp_tx_res_progress_t response_progress;
 
     /** Transaction index on the connection. */
-    size_t index;
+    size_t index;      /* 在 ->conn->transactions[] 中的索引 */
 
     /** Total repetitions for headers in request. */
     uint16_t req_header_repetitions;
